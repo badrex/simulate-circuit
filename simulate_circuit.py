@@ -13,24 +13,10 @@ class Voltmeter:
     def read(self, time_step, circuit):
         """ read voltage voltage on RL in the circuit """ 
 
-        # compute voltage Vout across RL
-        try: 
-            R = (circuit.R2 * circuit.RL) / (circuit.R2 + circuit.RL)
-        except ZeroDivisionError: # if R1 + R2 = 0
-            R = float('inf')
-
-        # calculate total current in the circuit
-        I_L = circuit.Vs / (circuit.R1 + R)
-        
-        V_L = I_L * R
-
         self.readings.append(
             {
                 "time": time_step,
-                "R1": circuit.R1,
-                "R2": circuit.R2,
-                "R": R,
-                "voltage": V_L
+                "voltage": circuit.V_L
             }
         ) 
 
@@ -38,6 +24,39 @@ class Voltmeter:
     
         """ return the last reading """
         return self.readings[-1]
+    
+    def reset(self):
+        """ reset the readings """
+        self.readings = []
+    
+
+class Ammeter:
+    """
+    A class to represent an ammeter device to read current
+    """
+    def __init__(self):
+        self.readings = []
+
+    def read(self, time_step, circuit):
+        """ read current I in the circuit """
+
+        # compute current I in the circuit in microamperes
+        I = circuit.V_L / circuit.RL * 1e6
+
+        self.readings.append(
+            {
+                "time": time_step,
+                "current": I
+            }
+        )
+
+    def last_reading(self):
+        """ return the last reading """
+        return self.readings[-1]
+    
+    def reset(self):
+        """ reset the readings """
+        self.readings = []
 
 
 class Circuit:
@@ -53,21 +72,27 @@ class Circuit:
 
         self.RL = RL
         self.Vs = Vs
+        self.V_L = 0
 
         self.time_step_size = 100 # in msec
 
-        # instantiate a voltmeter
+        # instantiate a voltmeter and an ammeter
         self.voltmeter = Voltmeter()
+        self.ammeter = Ammeter()
 
+    def parallel_R(self):
+        """Return the parallel resistance R of R1 and RL in Ohms"""
+        try: 
+            R = (self.R2 * self.RL) / (self.R2 + self.RL)
+        except ZeroDivisionError:
+            R = float('inf')
+
+        return R
 
     def compute_total_R(self):
         """Return total resistance R of the circuit in Ohms"""
-        try: 
-            R_total = self.R1 + (self.R2 * self.RL) / (self.R2 + self.RL)
-        except ZeroDivisionError: # if R1 + R2 = 0
-            R_total = float('inf')
 
-        return R_total
+        return self.R1 + self.parallel_R()
 
 
     async def update_state(self, time_step):
@@ -77,18 +102,28 @@ class Circuit:
 
         R_total = self.compute_total_R()
 
-        # read voltage across RL
-        self.voltmeter.read(time_step, self)
+        # compute voltage V_L across RL
+        R = self.parallel_R()
+        
+        self.V_L = self.Vs * (R / (self.R1 + R)) 
 
-        print(self.voltmeter.last_reading())
+        # if time_step is a multiplicanto of 100 
+        # read voltage across RL
+        if time_step % 100 == 0:
+            self.voltmeter.read(time_step, self)
+
+        if time_step % 300 == 0:
+            self.ammeter.read(time_step, self)
+
+        #print(self.voltmeter.last_reading())
     
 
         # Print current status - only for debugging
         # ohm = "\u03A9"
         # print(
-        #     f"t: {time_step:>6} msec "
-        #     f"R1: {self.R1/1000:>6.2f} k{ohm} "
-        #     f"R2: {self.R2/1000:>6.2f} k{ohm} "
+        #     f"t: {time_step:>6} msec\t"
+        #     f"R1: {self.R1/1000:>6.2f} k{ohm}\t"
+        #     f"R2: {self.R2/1000:>6.2f} k{ohm}\t"
         #     f"Total R: {R_total/1000:>6.2f} k{ohm}"
         # )
 
@@ -109,9 +144,11 @@ class Circuit:
     async def restart(self):
         """ restart the simulation """
 
-        # set R1 and R2 to initial values 
+        # set R1 and R2 to initial values and reset devices
         self.R1 = self.init_R1
         self.R2 = self.init_R2
+        self.voltmeter.reset()
+        self.ammeter.reset()
 
         await self.start()
 
@@ -123,7 +160,11 @@ async def main():
     # Start the simulation
     await circuit.start()
 
-    #print(circuit.voltmeter.readings)
+    for reading in circuit.voltmeter.readings:
+        print(f"t: {reading['time']:>6}, V: {reading['voltage']:>3.3f} V")
+
+    for reading in circuit.ammeter.readings:
+        print(f"t: {reading['time']:>6}, I: {reading['current']:>3.3f} uA")
 
 
     # Restart the simulation
