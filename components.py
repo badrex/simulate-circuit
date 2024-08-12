@@ -1,6 +1,7 @@
-# A Python prgram to simulate an electric circuit with a given configuration 
+# A module to simulate an electric circuit with a given configuration 
 # in real-time using the asyncio module 
 # Author: Badr Alabsi 2024
+
 import asyncio
 import time
 from datetime import datetime
