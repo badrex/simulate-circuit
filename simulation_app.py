@@ -2,6 +2,7 @@
 # Author: Badr Alabsi 2024
 
 import asyncio
+import time
 from components import Circuit, Voltmeter, Ammeter, Ohmmeter, Ohmmeter2
 
 async def main():
@@ -21,16 +22,28 @@ async def main():
         circuit.start(),
         voltmeter.start(debug=False),
         ammeter.start(debug=False),
-        ohmmeter.report(debug=False),
+        ohmmeter.report(debug=True),
         ohmmeter2.report(debug=True)
     )
 
+    # Print the readings for voltmeter 
+    print(end="\n\n\n")
+    print("Recorded voltmeter readings (🔋 voltage across R_L):")
+    print("-" * 60)
+    print(f"{'time':<9} |{'time_stamp':^30}| {'voltage':>12}")
+    print("-" * 60)
 
-    # for reading in voltmeter.reading_record:
-    #     print(f"time: {reading['time_step']:>6} {reading['time_stamp']:^30} V: {reading['voltage']:>8.3f} V")
+    for reading in voltmeter.reading_record:
+        print(f"{reading['time_step']/1000:<4.1f} sec {reading['time_stamp']:^30}   {reading['voltage']:>12.3f} V")
 
-    # for reading in ammeter.reading_record:
-    #     print(f"time: {reading['time_step']:>6} {reading['time_stamp']:^30} I: {reading['current']:>8.3f} uA")
+    # print the readings for ammeter
+    print(end="\n\n\n")
+    print("Recorded ammeter readings (⚡ current through R_L):")
+    print("-" * 60)
+    print(f"{'time':<9} |{'time_stamp':^30}| {'current':>12}")
+    print("-" * 60)
+    for reading in ammeter.reading_record:
+        print(f"{reading['time_step']/1000:<4.1f} sec   {reading['time_stamp']:^30} {reading['current']:>12.3f} uA")
 
 
     # Restart the simulation
@@ -38,4 +51,13 @@ async def main():
 
 if __name__ == "__main__":
     # Start the simulation using asyncio.run()
+
+    print("Starting the simulation:")
+    print("Time step: 100 msec")
+    print("Real-time readings of Ohmmeter 1 (🧄 — 1 sec) and Ohmmeter 2 (🥕 — 2 sec): ")
+    print("-" * 70)
+    print(f"Device    |   time   |        System time        |       Reading")
+    print("-" * 70)
+    time.sleep(1)
     asyncio.run(main())
+    print("-" * 70)

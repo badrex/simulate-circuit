@@ -250,7 +250,7 @@ class Ohmmeter:
                 formatted_time = now.strftime("%Y-%m-%d %H:%M:%S") + f".{now.microsecond // 1000:03d}"
 
                 if debug:
-                    print(f"🍉 Ohm 1. t: {formatted_time:^30} R_L: {self.current_reading:>8.3f} kOhm")
+                    print(f"🧄 Ohm 1. {i/1000:>5} sec {formatted_time:^32}  {self.current_reading:>7.3f} kOhm")
             
                 await asyncio.sleep(self.reading_interval/1000)
 
@@ -305,7 +305,7 @@ class Ohmmeter2(Ohmmeter):
                 formatted_time = now.strftime("%Y-%m-%d %H:%M:%S") + f".{now.microsecond // 1000:03d}"
 
                 if debug:
-                    print(f"🥥 Ohm 2. t: {formatted_time:^30} R_L: {rolling_R:>8.3f} kOhm")
+                    print(f"🥕 Ohm 2. {i/1000:>5} sec {formatted_time:^32}  {rolling_R:>7.3f} kOhm", end='\n\n')
             
                 await asyncio.sleep(self.reading_interval/1000)
 
