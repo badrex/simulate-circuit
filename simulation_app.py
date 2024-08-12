@@ -34,7 +34,7 @@ async def main():
     print("-" * 60)
 
     for reading in voltmeter.reading_record:
-        print(f"{reading['time_step']/1000:<4.1f} sec {reading['time_stamp']:^30}   {reading['voltage']:>12.3f} V")
+        print(f"{reading['time_step']/1000:<4.1f} sec   {reading['time_stamp']:^30}   {reading['voltage']:>12.3f} V")
 
     # print the readings for ammeter
     print(end="\n\n\n")
