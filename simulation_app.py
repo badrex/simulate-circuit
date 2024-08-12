@@ -45,7 +45,6 @@ async def main():
     for reading in ammeter.reading_record:
         print(f"{reading['time_step']/1000:<4.1f} sec   {reading['time_stamp']:^30} {reading['current']:>12.3f} uA")
 
-
     # Restart the simulation
     #await circuit.restart()
 
