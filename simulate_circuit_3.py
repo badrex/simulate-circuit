@@ -1,59 +1,39 @@
 # A Python prgram to simulate an electric circuit with a given configuration 
 # in real-time using the asyncio module 
 import asyncio
+import time
+from datetime import datetime
 
-class ObservableAttribute:
-    """
-    A class to represent an observable object whose value
-    can be observed by other objects
-    """
-    def __init__(self, initial_value=None):
-        self._value = initial_value
-        self._observers = []
-
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, new_value):
-        if new_value != self._value:
-            self._value = new_value
-            self.notify_observers()
-
-    def register_observer(self, observer):
-        # add an observer funciton to the list of observers
-        self._observers.append(observer)
-
-    def notify_observers(self):
-        # notify all observers when the value changes
-        for observer in self._observers:
-            observer()
 
 
 class Voltmeter:
     """
     A class to represent a voltmeter device to read voltage 
     """
-    def __init__(self, circuit):
+    def __init__(self, circuit, reading_interval=100):
         self.circuit = circuit
-        self.circuit.current_time_step.register_observer(self.update_reading)
-        self.time_step_interval = 100
+        self.reading_interval = reading_interval
         self.reading_record = []
 
-    def update_reading(self):
-        """ read voltage voltage on RL in the circuit """ 
+    async def start(self, debug=False):
+        """ read voltage voltage cross RL in the circuit """ 
 
-        # check if time_step is a multiple of time_step_interval
-        if self.circuit.current_time_step.value % self.time_step_interval == 0:
+        for i in range(0, 10100, self.reading_interval):
+            now = datetime.now() # get the current time
+            formatted_time = now.strftime("%Y-%m-%d %H:%M:%S") + f".{now.microsecond // 1000:03d}"
+
             self.reading_record.append(
                 {
-                    "time": self.circuit.current_time_step.value,
+                    "time_step": i,
+                    "time_stamp": formatted_time,
                     "voltage": self.circuit.V_L
                 }
-            ) 
-        else:
-            pass
+            )
+            # for debugging
+            if debug:
+                print(f"Voltmeter t: {formatted_time:>6}, V: {self.circuit.V_L:>3.3f} V")
+
+            await asyncio.sleep(self.reading_interval/1000)
 
     def last_reading(self):
     
@@ -69,32 +49,37 @@ class Ammeter:
     """
     A class to represent an ammeter device to read current
     """
-    def __init__(self, circuit):
+    def __init__(self, circuit, reading_interval=300):
         self.circuit = circuit
-        self.circuit.current_time_step.register_observer(self.update_reading)
-        self.readin_interval = 300
-        self.readings = []
+        self.reading_interval = reading_interval
+        self.reading_record = []
 
-    def update_reading(self):
+    async def start(self, debug=False):
         """ read current I in the circuit """
 
-        # check if time_step is a multiple of readin_interval
-        if self.circuit.current_time_step.value % self.readin_interval == 0:
-            # compute current I in the circuit in microamperes
-            I = self.circuit.V_L / self.circuit.RL * 1e6
+        for i in range(0, 10100, self.reading_interval):
+            # compute current I in through RL in microamperes
+            I = (self.circuit.V_L / self.circuit.RL) * 1e6
 
-            self.readings.append(
+            now = datetime.now() # get the current time
+            formatted_time = now.strftime("%Y-%m-%d %H:%M:%S") + f".{now.microsecond // 1000:03d}"
+
+            self.reading_record.append(
                 {
-                    "time": self.circuit.current_time_step.value,
+                    "time_step": i,
+                    "time_stamp": formatted_time,
                     "current": I
                 }
             )
-        else:
-            pass
+            # for debugging
+            if debug:
+                print(f"Ammeter t: {formatted_time:>6}, I: {I:>3.3f} uA")
+
+            await asyncio.sleep(self.reading_interval/1000)
 
     def last_reading(self):
         """ return the last reading """
-        return self.readings[-1]
+        return self.reading_record[-1]
     
     def reset(self):
         """ reset the readings """
@@ -116,10 +101,9 @@ class Circuit:
         self.Vs = Vs
         self.V_L = 0
 
-        self.current_time_step = ObservableAttribute(0)
         self.time_step_size = 100 # in msec
+        self.current_time_step = 0
 
-        #self.voltmeter = Voltmeter(self)
 
     def parallel_R(self):
         """Return the parallel resistance R of R1 and RL in Ohms"""
@@ -132,17 +116,20 @@ class Circuit:
 
     def compute_total_R(self):
         """Return total resistance R of the circuit in Ohms"""
-
         return self.R1 + self.parallel_R()
 
 
     async def update_state(self, time_step):
         """ update circuit parameters given current time step in msec"""
-        self.current_time_step.value = time_step
-        self.R1 = self.init_R1 + 10*self.current_time_step.value
-        self.R2 = self.init_R2 - 10*self.current_time_step.value
+        self.current_time_step = time_step
+        self.R1 = self.init_R1 + 10*self.current_time_step
+        self.R2 = self.init_R2 - 10*self.current_time_step
 
-        R_total = self.compute_total_R()
+        # make sure R1 and R2 are not negative by asserting
+        assert self.R1 >= 0, "R1 is negative"
+        assert self.R2 >= 0, "R2 is negative"
+
+        #R_total = self.compute_total_R()
 
         # compute voltage V_L across RL
         R = self.parallel_R()
@@ -185,31 +172,39 @@ class Circuit:
 
     async def restart(self):
         """ restart the simulation """
-
-        # set R1 and R2 to initial values and reset devices
+        self.reset()
+        await self.start()
+    
+    def reset(self):
+         # set R1 and R2 to initial values and reset devices
         self.R1 = self.init_R1
         self.R2 = self.init_R2
         self.current_time_step.value = 0
 
-        await self.start()
-
 
 async def main():
     # Instantiate the Circuit class
-    circuit = Circuit(0, 100000, RL=30000, Vs=10)
+    circuit = Circuit(init_R1=0, init_R2=100000)
 
     # attach voltmeter and ammeter to the circuit
-    voltmeter = Voltmeter(circuit)
-    ammeter = Ammeter(circuit)
+    voltmeter = Voltmeter(circuit, reading_interval=100)
+    ammeter = Ammeter(circuit, reading_interval=300)
 
-    # Start the simulation
-    await circuit.start()
+    # start the simulation
+    # run the task concurrently by setting up the event loop
+
+    await asyncio.gather(
+        circuit.start(),
+        voltmeter.start(debug=True),
+        ammeter.start(debug=True)
+    )
+
 
     for reading in voltmeter.reading_record:
-        print(f"t: {reading['time']:>6}, V: {reading['voltage']:>3.3f} V")
+        print(f"time: {reading['time_step']:>6} {reading['time_stamp']:>30} V: {reading['voltage']:>8.3f} V")
 
     for reading in ammeter.readings:
-        print(f"t: {reading['time']:>6}, I: {reading['current']:>3.3f} uA")
+        print(f"time: {reading['time_step']:>6} {reading['time_stamp']:<30} I: {reading['current']:>8.3f} uA")
 
     # for reading in circuit.ammeter.readings:
     #     print(f"t: {reading['time']:>6}, I: {reading['current']:>3.3f} uA")
